@@ -155,9 +155,9 @@
 
 #logPane {
   flex-grow: 1;
+  position: relative;
   height: 100%;
   overflow: hidden;
-
   padding: 0 3px;
 }
 
@@ -256,16 +256,23 @@
   padding-top: $filter-panel-top-margin;
 }
 
-
-#loading-progress-bottom,
-#loading-progress-top {
-  line-height: 15px;
-  visibility: hidden;
+.loading-progress {
+  width: 100%;
+  position: absolute;
 }
 
-.state-opened #loading-progress-bottom,
-.state-opened #loading-progress-top {
-  visibility: visible;
+.loading-progress img {
+  display: block; 
+  margin-left: auto; 
+  margin-right: auto;
+}
+
+.loading-progress-top {
+  top: 0px
+}
+
+.loading-progress-bottom {
+  bottom: 0px
 }
 
 .log-end {

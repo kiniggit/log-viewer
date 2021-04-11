@@ -68,8 +68,6 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
     logPane: ElementRef;
     @ViewChild('records', {static: true})
     records: ElementRef;
-    @ViewChild('loadingProgressTop', {static: true})
-    loadingProgressTop: ElementRef;
 
     @ViewChild('eventContextMenu', {static: true}) public eventContextMenu: ContextMenuComponent;
 
@@ -82,6 +80,9 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
     stateVersion: number = 0;
 
     readonly m: Record[] = [];
+
+    showTopProgressBar: boolean = false;
+    showBottomProgressBar: boolean = false;
 
     hasRecordBefore: boolean = true;
     hasRecordAfter: boolean = true;
@@ -318,7 +319,7 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
         if (this.state !== State.STATE_OPENED) { return; }
 
-        this.logView.nativeElement.style.marginTop = -this.shiftView - this.loadingProgressTop.nativeElement.clientHeight + 'px';
+        this.logView.nativeElement.style.marginTop = -this.shiftView + 'px';
     }
 
     ngOnInit() {
@@ -412,6 +413,8 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
                 if (this.hasRecordBefore) {
                     let recordCount =
                         Math.ceil((this.logPane.nativeElement.clientHeight - this.shiftView) / LogViewComponent.lineHeight) + 1;
+
+                    this.showTopProgressBar = true;    
 
                     this.commService.send(
                         new Command('loadNext', {
@@ -949,6 +952,7 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
     private tryGrow() {
         if (this.getLogViewHeight() - this.shiftView < this.logPane.nativeElement.clientHeight * 2) {
             if (this.hasRecordAfter) {
+                this.showBottomProgressBar = true;
                 this.requestNextRecords();
             }
         }
@@ -1233,6 +1237,8 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
 
         if (event.backward) {
+            this.showTopProgressBar = false;
+
             if (this.m.length > 0 && !Record.containPosition(event.start, this.m[0])) {
                 return;
             }
@@ -1247,6 +1253,8 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
             this.onViewMovedTop();
         } else {
+            this.showBottomProgressBar = false;
+
             if (this.m.length > 0 &&
                 !Record.containPosition(event.start, this.m[this.m.length - 1])) {
                 return;
