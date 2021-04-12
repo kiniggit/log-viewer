@@ -319,8 +319,8 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
         if (this.state !== State.STATE_OPENED) { return; }
 
-        this.logView.nativeElement.style.marginTop = -this.shiftView + 'px';
-    }
+        // this.logView.nativeElement.style.marginTop = -this.shiftView + 'px';
+    } 
 
     ngOnInit() {
         let params = this.route.snapshot;
@@ -336,12 +336,42 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
     }
 
+    pageDown_new() {
+        if (this.isAllDown()) {
+            return;
+        }
+
+        let recordCount = Math.floor(this.logPane.nativeElement.clientHeight / LogViewComponent.lineHeight);
+        this.doDown_new(recordCount);
+        this.scrollDown(recordCount - 1);
+    }
+
     pageDown() {
         let offset = this.getPageHeight() - LogViewComponent.lineHeight;
 
         this.doDown(offset);
     }
 
+    isAllDown() {
+        return !this.hasRecordAfter && this.logPane.nativeElement.offsetHeight + this.logPane.nativeElement.scrollTop >= this.logPane.nativeElement.scrollHeight;
+    }
+
+    down_new() {
+        if (this.isAllDown()) {
+            return;
+        }
+
+        if (this.logPane.nativeElement.offsetHeight + this.logPane.nativeElement.scrollTop >= this.logPane.nativeElement.scrollHeight) {
+            this.doDown_new(5);
+        }
+        this.scrollDown();
+    } 
+    
+    scrollDown(recordCount: number = 1) {
+        let amount = recordCount * LogViewComponent.lineHeight;
+        this.logPane.nativeElement.scrollTop = Math.min(this.logPane.nativeElement.scrollTop + amount, this.logPane.nativeElement.scrollHeight - this.logPane.nativeElement.offsetHeight);
+    }
+    
     down() {
         this.doDown(LogViewComponent.lineHeight);
     }
@@ -362,6 +392,12 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
 
         this.tryGrow();
+    }
+
+    doDown_new(recordCount: number) {
+        this.showBottomProgressBar = true;
+        this.requestNextRecords_new(recordCount);
+        // this.removeHead();
     }
 
     doDown(offset: number) {
@@ -386,13 +422,52 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
     }
 
-    up() {
+    scrollBegin_new() {
+        this.cleanAndScrollToEdge(this.recordCountToLoad(), true);
+    }
+
+    scrollEnd_new() {
+        this.cleanAndScrollToEdge();
+    }
+
+	up() {
         this.doUp(LogViewComponent.lineHeight);
+    }
+
+    isAllUp() {
+        return !this.hasRecordBefore && this.logPane.nativeElement.scrollTop === 0;
+    }
+
+    up_new() {
+        if (this.isAllUp()) {
+            return;
+        }
+
+        if (this.logPane.nativeElement.scrollTop <= 0) {
+            this.doUp_new(1);
+        }
+
+        this.scrollUp();    
+    }
+
+    pageUp_new() {
+        if (this.isAllUp()) {
+            return;
+        }
+
+        let recordCount = Math.floor(this.logPane.nativeElement.clientHeight / LogViewComponent.lineHeight);
+        this.doUp_new(recordCount);
+        this.scrollUp(recordCount - 1);
+    }
+
+    scrollUp(recordCount: number = 1) {
+        let amount = recordCount * LogViewComponent.lineHeight;
+        this.logPane.nativeElement.scrollTop = Math.max(this.logPane.nativeElement.scrollTop - amount, 0);
     }
 
     pageUp() {
         let offset = this.getPageHeight() - LogViewComponent.lineHeight;
-
+        
         this.doUp(offset);
     }
 
@@ -430,6 +505,22 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
                 }
             }
         }
+    }
+
+    doUp_new(recordCount: number) {
+        this.showTopProgressBar = true;    
+
+        this.commService.send(
+            new Command('loadNext', {
+                start: Position.recordStart(this.m[0]),
+                backward: true,
+                recordCount,
+                hashes: this.vs.hashes,
+                stateVersion: this.stateVersion,
+            })
+        );
+
+        // this.removeTail();
     }
 
     copyPermalink() {
@@ -570,29 +661,27 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
         switch (event.which) {
             case 38:
-                this.up();
+                this.up_new();
                 break;
 
             case 40:
-                this.down();
+                this.down_new();
                 break;
 
             case 34:
-                this.pageDown();
+                this.pageDown_new();
                 break;
 
             case 33:
-                this.pageUp();
+                this.pageUp_new();
                 break;
 
             case 35: // end
-                this.scrollEnd();
-
+                this.scrollEnd_new();
                 break;
 
             case 36: // home
-                this.scrollBegin();
-
+                this.scrollBegin_new();
                 break;
 
             case 70: // F
@@ -727,6 +816,13 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
     }
 
+    wheelRoll_new(event: WheelEvent) {
+        if (this.state !== State.STATE_OPENED) { 
+            return; 
+        }
+        event.deltaY > 0 ? this.down_new() : this.up_new(); 
+    }
+
     wheelRoll(event: WheelEvent) {
         if (this.state !== State.STATE_OPENED) { return; }
 
@@ -745,7 +841,7 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         } else {
             this.doUp(-value);
         }
-    }
+    }    
 
     addToFavorites() {
         this.inFavorites = !this.inFavorites;
@@ -956,6 +1052,29 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
                 this.requestNextRecords();
             }
         }
+    }
+
+    private requestNextRecords_new(recordCount: number) {
+        let offset: Position;
+        if (this.m.length === 0) {
+            if (this.logs.length === 1) {
+                offset = {logId: this.logs[0].id, time: 0, o: 0};
+            } else {
+                offset = {logId: '', time: 0, o: 0};
+            }
+        } else {
+            offset = Position.recordEnd(this.m[this.m.length - 1]);
+        }
+
+        this.commService.send(
+            new Command('loadNext', {
+                start: offset,
+                backward: false,
+                recordCount: recordCount,
+                hashes: this.vs.hashes,
+                stateVersion: this.stateVersion,
+            })
+        );
     }
 
     private requestNextRecords() {
@@ -1237,8 +1356,6 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
         }
 
         if (event.backward) {
-            this.showTopProgressBar = false;
-
             if (this.m.length > 0 && !Record.containPosition(event.start, this.m[0])) {
                 return;
             }
@@ -1253,8 +1370,6 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
             this.onViewMovedTop();
         } else {
-            this.showBottomProgressBar = false;
-
             if (this.m.length > 0 &&
                 !Record.containPosition(event.start, this.m[this.m.length - 1])) {
                 return;
@@ -1275,6 +1390,9 @@ export class LogViewComponent implements OnInit, OnDestroy, AfterViewChecked, Ba
 
             this.tryGrow();
         }
+
+        this.showTopProgressBar = false;
+        this.showBottomProgressBar = false;
     }
 
     @BackendEventHandler()

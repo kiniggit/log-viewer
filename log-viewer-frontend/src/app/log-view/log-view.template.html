@@ -127,7 +127,7 @@
     <lv-top-filter></lv-top-filter>
 </div>
 
-<div #logPane id="logPane" (wheel)="wheelRoll($event)" [class.state-opened]="state === 0">
+<div #logPane id="logPane" (wheel)="wheelRoll_new($event)" [class.state-opened]="state === 0">
     <div *ngIf="state === 1" class="loading-placeholder">
         <span><img src="assets/progress.gif"> Loading...</span>
     </div>
